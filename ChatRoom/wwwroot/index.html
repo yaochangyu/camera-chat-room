@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignalR 極速聊天室 (.NET 10)</title>
+    <!-- 引入 Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
+    <!-- 防止深色模式 FOUC -->
+    <script>(function(){try{var t=localStorage.getItem("chat-theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(_){}})();</script>
+    <style>
+        :root {
+            --panel-bg: #ffffff;
+            --sidebar-bg: #f8fafc;
+            --border-color: #e2e8f0;
+            --accent-color: #2563eb;
+            --text-main: #1e293b;
+            --text-muted: #94a3b8;
+            --success-color: #16a34a;
+            --danger-color: #dc2626;
+            --warning-color: #d97706;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+            background: #e8ecf0;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .app-container {
+            width: 95vw;
+            max-width: 1200px;
+            height: 90vh;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            border-right: 1px solid var(--border-color);
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            background: var(--sidebar-bg);
+            overflow-y: auto;
+        }
+
+        .brand {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-main);
+            padding: 4px 0 8px;
+            letter-spacing: 0;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* 深色切換按鈕 */
+        .theme-btn {
+            width: auto !important;
+            height: 26px;
+            padding: 0 8px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            transition: background 0.12s ease, color 0.12s ease;
+        }
+
+        .theme-btn:hover {
+            background: #f1f5f9;
+            color: var(--text-main);
+        }
+
+        .section-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* Inputs & Buttons */
+        input {
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        input:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        input::placeholder {
+            color: var(--text-muted);
+        }
+
+        button {
+            width: 100%;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 9px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            font-family: inherit;
+            font-size: 14px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--danger-color);
+            flex-shrink: 0;
+            transition: background 0.2s ease;
+        }
+
+        .status-dot.connected {
+            background: var(--success-color);
+        }
+
+        /* Contact User List */
+        .user-list {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .user-item {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 10px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.12s ease;
+            color: var(--text-main);
+        }
+
+        .user-item:hover {
+            background: #f1f5f9;
+        }
+
+        .user-item.active {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .user-item.lobby-item {
+            color: var(--success-color);
+        }
+
+        .user-item.lobby-item.active {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+            color: #15803d;
+        }
+
+        .unread-badge {
+            background: var(--danger-color);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 10px;
+        }
+
+        /* Log Console */
+        .log-console {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+            font-size: 10px;
+            color: #475569;
+            overflow-y: auto;
+            max-height: 100px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 2px;
+            word-break: break-all;
+        }
+
+        /* Right Panel - Chat Area */
+        .chat-area {
+            display: grid;
+            grid-template-rows: 64px 1fr 70px;
+            height: 100%;
+            background: var(--panel-bg);
+        }
+
+        .chat-header {
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--panel-bg);
+        }
+
+        .room-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .room-name {
+            font-size: 15px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-main);
+        }
+
+        .room-type-tag {
+            font-size: 10px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .room-type-tag.public {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .room-type-tag.private {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+
+        .user-count {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+
+        /* Messages Window */
+        .messages-window {
+            padding: 20px 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: var(--panel-bg);
+        }
+
+        .message-bubble {
+            max-width: 60%;
+            padding: 9px 13px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            animation: fadeIn 0.18s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-bubble.incoming {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            align-self: flex-start;
+            border-bottom-left-radius: 3px;
+        }
+
+        .message-bubble.outgoing {
+            background: var(--accent-color);
+            align-self: flex-end;
+            border-bottom-right-radius: 3px;
+        }
+
+        .msg-meta {
+            font-size: 10px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .message-bubble.incoming .msg-meta {
+            color: var(--text-muted);
+        }
+
+        .message-bubble.outgoing .msg-meta {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .msg-time {
+            font-weight: 400;
+        }
+
+        .msg-content {
+            word-break: break-all;
+            color: var(--text-main);
+        }
+
+        .message-bubble.outgoing .msg-content {
+            color: #ffffff;
+        }
+
+        /* System Notification */
+        .system-notification {
+            align-self: center;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 4px 14px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+            max-width: 80%;
+        }
+
+        /* Chat Input Area */
+        .chat-input-area {
+            border-top: 1px solid var(--border-color);
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--panel-bg);
+        }
+
+        .chat-input-area input {
+            flex-grow: 1;
+            border-radius: 8px;
+            padding: 10px 16px;
+        }
+
+        .chat-input-area button {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        .logged-in-only {
+            display: none;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Disabled states */
+        button:disabled {
+            background: #cbd5e1;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        button:disabled:hover {
+            background: #cbd5e1;
+        }
+
+        input:disabled {
+            background: #f8fafc;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        /* Focus visible — keyboard accessibility */
+        button:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 2px;
+        }
+
+        input:focus-visible {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Active state */
+        button:not(:disabled):active {
+            transform: translateY(1px);
+        }
+
+        /* ALL CAPS typography — minimum 0.06em tracking */
+        .section-title,
+        .room-type-tag {
+            letter-spacing: 0.08em;
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            .message-bubble { animation: none; }
+            .spinner { animation-duration: 1.5s; }
+        }
+
+        /* ===== 深色模式 ===== */
+        [data-theme="dark"] {
+            --panel-bg: #1b1e27;
+            --sidebar-bg: #141720;
+            --border-color: #2d3144;
+            --text-main: #e2e5ed;
+            --text-muted: #64748b;
+            --success-color: #22c55e;
+            --danger-color: #f87171;
+        }
+
+        [data-theme="dark"] body {
+            background: #0f1117;
+        }
+
+        [data-theme="dark"] .app-container {
+            box-shadow: 0 4px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        [data-theme="dark"] .theme-btn:hover {
+            background: #252a38;
+            color: var(--text-main);
+        }
+
+        [data-theme="dark"] input {
+            background: #141720;
+            color: var(--text-main);
+        }
+
+        [data-theme="dark"] input:disabled {
+            background: #1b1e27;
+        }
+
+        [data-theme="dark"] button:disabled {
+            background: #252a38;
+            color: #4b5563;
+        }
+
+        [data-theme="dark"] .user-item:hover {
+            background: #252a38;
+        }
+
+        [data-theme="dark"] .user-item.active {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.25);
+        }
+
+        [data-theme="dark"] .user-item.lobby-item {
+            color: #4ade80;
+        }
+
+        [data-theme="dark"] .user-item.lobby-item.active {
+            background: rgba(34, 197, 94, 0.08);
+            border-color: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+        }
+
+        [data-theme="dark"] .message-bubble.incoming {
+            background: #252a38;
+            border-color: #2d3144;
+        }
+
+        [data-theme="dark"] .message-bubble.incoming .msg-content {
+            color: var(--text-main);
+        }
+
+        [data-theme="dark"] .log-console {
+            background: #0f1117;
+            color: #64748b;
+        }
+
+        [data-theme="dark"] .log-entry {
+            border-bottom-color: #1b1e27;
+        }
+
+        [data-theme="dark"] .system-notification {
+            background: #252a38;
+            border-color: #2d3144;
+        }
+
+        [data-theme="dark"] .room-type-tag.public {
+            background: rgba(34, 197, 94, 0.12);
+            color: #4ade80;
+        }
+
+        [data-theme="dark"] .room-type-tag.private {
+            background: rgba(59, 130, 246, 0.12);
+            color: #60a5fa;
+        }
+
+        /* Profile Modal 深色 */
+        [data-theme="dark"] #profile-modal {
+            background: rgba(0, 0, 0, 0.65) !important;
+        }
+
+        [data-theme="dark"] #profile-modal-content {
+            background: #1b1e27 !important;
+            border-color: #2d3144 !important;
+        }
+
+        [data-theme="dark"] #profile-modal h3 {
+            color: var(--text-main) !important;
+        }
+
+        [data-theme="dark"] #profile-username {
+            color: var(--text-main) !important;
+        }
+
+        [data-theme="dark"] #profile-bio {
+            background: #141720 !important;
+            border-color: #2d3144 !important;
+            color: #9ca3af !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="brand">
+                <span>SignalR Chat Room</span>
+                <button id="theme-toggle" class="theme-btn" onclick="toggleTheme()" aria-label="切換深色模式" title="切換深色模式"></button>
+            </div>
+
+            <!-- Login Section -->
+            <div id="login-card" class="section-card">
+                <span class="section-title">身分登入</span>
+                <input type="text" id="username-input" placeholder="請輸入使用者名稱..." value="User1">
+                <input type="password" id="password-input" placeholder="請輸入密碼...">
+                <button id="login-btn" onclick="login()">登入</button>
+            </div>
+
+            <!-- Connection Status -->
+            <div id="settings-card" class="section-card logged-in-only" style="display: flex; flex-direction: column; gap: 12px;">
+                <span class="section-title">連線與自訂狀態</span>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="status-badge">
+                        <div id="status-dot" class="status-dot"></div>
+                        <span id="status-text">未連線</span>
+                    </div>
+                    <button id="connect-btn" style="width: auto; padding: 6px 12px; font-size: 12px;" onclick="startSignalR()">建立連線</button>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin-top: -4px;" id="conn-id-display"></div>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="my-status-input" placeholder="更新我的狀態訊息..." style="font-size: 12px; padding: 6px 10px;">
+                    <button onclick="updateMyStatus()" style="width: auto; padding: 6px 12px; font-size: 12px; white-space: nowrap;">更新</button>
+                </div>
+                <button onclick="logout()" style="width: auto; padding: 6px 12px; font-size: 12px; background: rgba(255,80,80,0.2); border-color: rgba(255,80,80,0.4);">登出</button>
+            </div>
+
+            <!-- Users & Rooms Section (Visible after login) -->
+            <div id="contacts-card" class="section-card logged-in-only" style="flex-grow: 1; display: flex; flex-direction: column; gap: 12px;">
+                <span class="section-title">我的好友與大廳</span>
+                
+                <!-- 新增好友 -->
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="new-friend-input" placeholder="輸入好友名稱..." style="font-size: 12px; padding: 6px 10px; flex-grow: 1;">
+                    <button onclick="addFriend()" style="width: auto; padding: 6px 12px; font-size: 12px; white-space: nowrap;">新增好友</button>
+                </div>
+
+                <div class="user-list" id="user-list-container" style="flex-grow: 1; overflow-y: auto;">
+                    <!-- Lobby (Always visible) -->
+                    <div class="user-item lobby-item active" id="item-lobby" onclick="selectChatTarget('lobby', 'group')" style="grid-template-columns: auto 1fr;">
+                        <div class="status-dot connected"></div>
+                        <span style="font-weight: 600;">公共大廳 (lobby)</span>
+                    </div>
+                    <!-- Friends List (Rendered Dynamically) -->
+                </div>
+            </div>
+
+            <!-- Log Console -->
+            <div class="section-card">
+                <span class="section-title">系統連線日誌</span>
+                <div id="log-console" class="log-console">
+                    <div class="log-entry">系統初始化。請先登入帳號。</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <div class="room-info">
+                    <span class="room-name" id="current-room-name">
+                        公共大廳 (lobby)
+                        <span class="room-type-tag public" id="room-type-tag">Public</span>
+                    </span>
+                    <span class="user-count" id="current-user-display">請先登入並建立 WebSocket 連線以發言</span>
+                </div>
+            </div>
+
+            <!-- Messages Window -->
+            <div class="messages-window" id="messages-window">
+                <div class="system-notification">請先進行身分登入，並建立 WebSocket 即時連線。</div>
+            </div>
+
+            <!-- Chat Input -->
+            <div class="chat-input-area">
+                <input type="text" id="message-input" placeholder="輸入訊息..." onkeydown="if(event.key==='Enter') sendMessage()" disabled>
+                <button id="send-btn" onclick="sendMessage()" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入 SignalR 官方 JS 用戶端 (CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script>
+        let connection = null;
+        let longLivedToken = null;
+        let currentUsername = "";
+
+        function parseJwt(token) {
+            const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+            return JSON.parse(atob(base64));
+        }
+
+        async function restoreSession() {
+            try {
+                const res = await fetch("/api/auth/session");
+                if (!res.ok) return;
+                const data = await res.json();
+                longLivedToken = data.token;
+                const payload = parseJwt(longLivedToken);
+                currentUsername = payload.unique_name || payload.sub || "";
+                document.getElementById("login-card").style.display = "none";
+                document.getElementById("current-user-display").innerText = `使用者: ${currentUsername} (未連線)`;
+                await fetchFriends();
+                addLog(`已從 Session 自動登入（${currentUsername}）`, "success");
+                if (sessionStorage.getItem("wasConnected") === "true") {
+                    addLog("偵測到上次已連線，自動重新建立 SignalR 連線...");
+                    await startSignalR();
+                }
+            } catch (e) {
+                console.error("restoreSession failed:", e);
+            }
+        }
+
+        async function logout() {
+            sessionStorage.removeItem("wasConnected");
+            if (connection) { try { await connection.stop(); } catch (_) {} connection = null; }
+            await fetch("/api/auth/logout", { method: "POST" });
+            longLivedToken = null;
+            currentUsername = "";
+            friends = [];
+            renderFriendsList();
+            updateConnectionStatus("disconnected");
+            const connectBtn = document.getElementById("connect-btn");
+            connectBtn.style.display = "block";
+            connectBtn.innerText = "建立連線";
+            connectBtn.disabled = false;
+            document.getElementById("conn-id-display").innerText = "";
+            document.getElementById("current-user-display").innerText = "";
+            document.getElementById("login-card").style.display = "flex";
+            addLog("已登出", "info");
+        }
+
+        window.addEventListener("DOMContentLoaded", restoreSession);
+        
+        // 聊天對象狀態
+        let chatTarget = "lobby";     // 'lobby' 或 'username'
+        let chatType = "group";       // 'group' 或 'private'
+        
+        // 保存各對話的未讀訊息標記
+        const unreadCounts = {};
+
+        function canonicalUser(username) {
+            return (username || "").toLowerCase();
+        }
+
+        // PKCE helpers
+        function generateCodeVerifier() {
+            const array = new Uint8Array(32);
+            crypto.getRandomValues(array);
+            return btoa(String.fromCharCode(...array))
+                .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+
+        async function generateCodeChallenge(verifier) {
+            const data = new TextEncoder().encode(verifier);
+            const hash = await crypto.subtle.digest('SHA-256', data);
+            return btoa(String.fromCharCode(...new Uint8Array(hash)))
+                .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+
+        async function getHubTokenWithPkce() {
+            const codeVerifier = generateCodeVerifier();
+            const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+            const challengeRes = await fetch(`${hostUrl}/api/auth/hub-token/challenge`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${longLivedToken}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ codeChallenge })
+            });
+            if (!challengeRes.ok) throw new Error(`PKCE Challenge 失敗 (HTTP ${challengeRes.status})`);
+            const { auth_code } = await challengeRes.json();
+
+            const exchangeRes = await fetch(`${hostUrl}/api/auth/hub-token/exchange`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ authCode: auth_code, codeVerifier })
+            });
+            if (!exchangeRes.ok) throw new Error(`PKCE Exchange 失敗 (HTTP ${exchangeRes.status})`);
+            const { token } = await exchangeRes.json();
+            return token;
+        }
+
+        function unreadKey(target) {
+            return target === "lobby" ? "lobby" : canonicalUser(target);
+        }
+        
+        const hostUrl = window.location.origin;
+
+        function addLog(msg, type = "info") {
+            const consoleEl = document.getElementById("log-console");
+            const entry = document.createElement("div");
+            entry.className = "log-entry";
+            entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            if (type === "error") entry.style.color = "#dc2626";
+            if (type === "success") entry.style.color = "#15803d";
+            consoleEl.appendChild(entry);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        // 登入成功後 Server 同時設定 HttpOnly Cookie，供後續頁面重整時 restoreSession 使用
+        async function login() {
+            const usernameInput = document.getElementById("username-input");
+            const username = usernameInput.value.trim();
+            if (!username) return alert("請輸入使用者名稱");
+            const password = document.getElementById("password-input").value;
+            if (!password) return alert("請輸入密碼");
+
+            const loginBtn = document.getElementById("login-btn");
+            loginBtn.innerHTML = '<div class="spinner"></div>';
+            loginBtn.disabled = true;
+
+            try {
+                addLog(`正在登入使用者 "${username}"...`);
+                const response = await fetch(`${hostUrl}/api/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) throw new Error("登入失敗");
+                
+                const data = await response.json();
+                longLivedToken = data.token;
+                currentUsername = username;
+                
+                addLog("登入成功！已取得 API 長效 Token (1 小時)。", "success");
+
+                loginBtn.innerText = "登入";
+                loginBtn.disabled = false;
+
+                // 隱藏登入介面，顯示聊天主面板
+                document.getElementById("login-card").style.display = "none";
+                document.getElementById("current-user-display").innerText = `使用者: ${currentUsername} (未連線)`;
+
+                await fetchFriends();
+            } catch (err) {
+                addLog(err.message, "error");
+                loginBtn.innerText = "登入";
+                loginBtn.disabled = false;
+            }
+        }
+
+        async function startSignalR() {
+            if (connection) return;
+
+            const connectBtn = document.getElementById("connect-btn");
+            connectBtn.innerHTML = '<div class="spinner"></div>';
+            connectBtn.disabled = true;
+
+            addLog("初始化 SignalR 連線，配置 accessTokenFactory...");
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl(`${hostUrl}/chatHub`, {
+                    // PKCE 二階段換票：Challenge → Exchange，防止 API Token 被竊後直接換 Hub Token
+                    accessTokenFactory: async () => {
+                        addLog(">>> 正在使用 PKCE 換取短效 Hub Token...");
+                        try {
+                            const token = await getHubTokenWithPkce();
+                            addLog(`<<< PKCE 換票成功 (30 秒過期): ${token.substring(0, 15)}...`, "success");
+                            return token;
+                        } catch (e) {
+                            if (e.message.includes("401")) addLog("長效 Token 已過期，請重新整理登入", "error");
+                            addLog(`取得短效 Token 失敗: ${e.message}`, "error");
+                            throw e;
+                        }
+                    }
+                })
+                .withAutomaticReconnect()
+                .withStatefulReconnect() // 啟用有狀態重新連線
+                .build();
+
+            // 1. 監聽群組廣播訊息 (公共大廳)
+            connection.on("ReceiveMessage", (user, message) => {
+                if (chatTarget === "lobby") {
+                    appendMessage(user, message, canonicalUser(user) === canonicalUser(currentUsername) ? "outgoing" : "incoming");
+                } else {
+                    // 若不在大廳，標記大廳未讀
+                    incrementUnread("lobby");
+                }
+            });
+
+            // 2. 私訊只會推送給接收者，收到時自己一定是接收者
+            connection.on("ReceivePrivateMessage", (sender, message) => {
+                if (chatType === "private" && canonicalUser(chatTarget) === canonicalUser(sender)) {
+                    appendMessage(sender, message, "incoming");
+                } else {
+                    // 若目前沒與該人聊天，標記該聯絡人未讀
+                    incrementUnread(sender);
+                }
+            });
+
+            // 3. 監聽在線名單更新事件 (用以全域更新好友在線狀態)
+            connection.on("UpdateUserList", (users) => {
+                const onlineSet = new Set(users.map(u => u.toLowerCase()));
+                friends.forEach(f => {
+                    f.isOnline = onlineSet.has(f.username.toLowerCase());
+                });
+                renderFriendsList();
+            });
+
+            // 4. 好友上下線或自訂狀態更新（即時定點推送，不走 UpdateUserList 廣播）
+            connection.on("FriendStatusChanged", (username, isOnline, statusMessage) => {
+                const friend = friends.find(f => f.username.toLowerCase() === username.toLowerCase());
+                if (friend) {
+                    friend.isOnline = isOnline;
+                    if (statusMessage !== null && statusMessage !== undefined) {
+                        friend.statusMessage = statusMessage;
+                    }
+                    renderFriendsList();
+                }
+            });
+
+            connection.on("UserJoined", (connId, room) => {
+                if (chatTarget === "lobby") {
+                    appendSystemNotification(`使用者 [${connId.substring(0, 6)}] 加入了大廳`);
+                }
+            });
+
+            connection.on("UserLeft", (connId, room) => {
+                if (chatTarget === "lobby") {
+                    appendSystemNotification(`使用者 [${connId.substring(0, 6)}] 離開了大廳`);
+                }
+            });
+
+            connection.on("ReceiveNotification", (msg) => {
+                addLog(`[伺服器] ${msg}`);
+            });
+
+            // 連線生命週期
+            connection.onreconnecting(error => {
+                updateConnectionStatus("reconnecting");
+                addLog(`連線中斷，正在嘗試有狀態重連... 錯誤: ${error?.message}`, "error");
+            });
+
+            connection.onreconnected(connectionId => {
+                updateConnectionStatus("connected");
+                document.getElementById("conn-id-display").innerText = `Connection ID: ${connectionId}`;
+                addLog(`重新連線成功！Connection ID: ${connectionId}`, "success");
+                
+                // 重連後重新加入大廳群組
+                if (connection) {
+                    connection.invoke("JoinRoom", "lobby").catch(e => addLog(e.message, "error"));
+                }
+            });
+
+            connection.onclose(error => {
+                sessionStorage.removeItem("wasConnected");
+                updateConnectionStatus("disconnected");
+                addLog(`連線完全關閉。請手動重連。`, "error");
+                connection = null;
+                connectBtn.style.display = "block";
+                connectBtn.innerText = "建立連線";
+                connectBtn.disabled = false;
+            });
+
+            // 開始連線
+            try {
+                addLog("正在與 Hub 建立 WebSocket 連線...");
+                await connection.start();
+                updateConnectionStatus("connected");
+                
+                document.getElementById("conn-id-display").innerText = `Connection ID: ${connection.connectionId}`;
+                addLog("WebSocket 連線成功建立！", "success");
+                sessionStorage.setItem("wasConnected", "true");
+                connectBtn.style.display = "none";
+
+                // 成功後先預設加入公共大廳群組
+                await connection.invoke("JoinRoom", "lobby");
+                
+                // 啟用輸入框與發送鍵
+                document.getElementById("message-input").disabled = false;
+                document.getElementById("send-btn").disabled = false;
+
+                // 載入大廳歷史訊息
+                await loadChatHistory();
+            } catch (err) {
+                addLog(`連線失敗: ${err.message}`, "error");
+                connection = null;
+                connectBtn.innerHTML = "建立連線";
+                connectBtn.disabled = false;
+            }
+        }
+
+        function updateConnectionStatus(status) {
+            const dot = document.getElementById("status-dot");
+            const text = document.getElementById("status-text");
+            const userDisplay = document.getElementById("current-user-display");
+            
+            if (status === "connected") {
+                dot.className = "status-dot connected";
+                dot.style.background = "";
+                text.innerText = "已連線";
+                text.style.color = "var(--success-color)";
+                userDisplay.innerText = `使用者: ${currentUsername} (已連線)`;
+            } else if (status === "reconnecting") {
+                dot.className = "status-dot";
+                dot.style.background = "var(--warning-color)";
+                text.innerText = "重連中...";
+                text.style.color = "var(--warning-color)";
+            } else {
+                dot.className = "status-dot";
+                dot.style.background = "";
+                text.innerText = "未連線";
+                text.style.color = "var(--danger-color)";
+                userDisplay.innerText = `使用者: ${currentUsername} (未連線)`;
+            }
+        }
+
+        let friends = [];
+
+        // 載入好友清單
+        async function fetchFriends() {
+            try {
+                const response = await fetch(`${hostUrl}/api/friends`, {
+                    headers: { "Authorization": `Bearer ${longLivedToken}` }
+                });
+                if (!response.ok) throw new Error("無法載入好友名單");
+                friends = await response.json();
+                renderFriendsList();
+            } catch (err) {
+                addLog(err.message, "error");
+            }
+        }
+
+        // 渲染好友清單到 UI
+        function renderFriendsList() {
+            const container = document.getElementById("user-list-container");
+            
+            // 先保留 lobby
+            const lobbyItem = document.getElementById("item-lobby");
+            container.innerHTML = "";
+            container.appendChild(lobbyItem);
+
+            // 渲染好友
+            friends.forEach(f => {
+                const count = unreadCounts[unreadKey(f.username)] || 0;
+                
+                const item = document.createElement("div");
+                item.className = "user-item";
+                item.id = `item-${f.username.toLowerCase()}`;
+                item.onclick = () => selectChatTarget(f.username, "private");
+                
+                // 在線狀態圓點
+                const dot = document.createElement("div");
+                dot.className = `status-dot ${f.isOnline ? 'connected' : ''}`;
+                item.appendChild(dot);
+
+                // 名字與狀態文字區塊
+                const infoDiv = document.createElement("div");
+                infoDiv.style.display = "flex";
+                infoDiv.style.flexDirection = "column";
+                infoDiv.style.overflow = "hidden";
+                infoDiv.style.textAlign = "left";
+                
+                const nameSpan = document.createElement("span");
+                nameSpan.style.fontWeight = "600";
+                nameSpan.innerText = f.username;
+                infoDiv.appendChild(nameSpan);
+
+                const statusSpan = document.createElement("span");
+                statusSpan.style.fontSize = "11px";
+                statusSpan.style.color = "var(--text-muted)";
+                statusSpan.style.whiteSpace = "nowrap";
+                statusSpan.style.textOverflow = "ellipsis";
+                statusSpan.style.overflow = "hidden";
+                statusSpan.innerText = f.statusMessage || "";
+                infoDiv.appendChild(statusSpan);
+
+                item.appendChild(infoDiv);
+
+                // 控制按鈕與未讀通知區塊
+                const actionDiv = document.createElement("div");
+                actionDiv.style.display = "flex";
+                actionDiv.style.alignItems = "center";
+                actionDiv.style.gap = "8px";
+
+                if (count > 0) {
+                    const badge = document.createElement("span");
+                    badge.className = "unread-badge";
+                    badge.innerText = `${count} 新`;
+                    actionDiv.appendChild(badge);
+                }
+
+                const infoBtn = document.createElement("button");
+                infoBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    showProfileModal(f.username);
+                };
+                infoBtn.style.width = "auto";
+                infoBtn.style.padding = "3px 8px";
+                infoBtn.style.fontSize = "11px";
+                infoBtn.style.background = "#f1f5f9";
+                infoBtn.style.color = "#475569";
+                infoBtn.style.border = "1px solid #e2e8f0";
+                infoBtn.style.borderRadius = "4px";
+                infoBtn.innerText = "資料";
+                actionDiv.appendChild(infoBtn);
+
+                item.appendChild(actionDiv);
+
+                // 維持選中狀態的 active class
+                if (chatType === "private" && canonicalUser(chatTarget) === canonicalUser(f.username)) {
+                    item.classList.add("active");
+                }
+
+                container.appendChild(item);
+            });
+        }
+
+        // 新增好友
+        async function addFriend() {
+            const input = document.getElementById("new-friend-input");
+            const target = input.value.trim();
+            if (!target) return;
+            try {
+                const response = await fetch(`${hostUrl}/api/friends/add`, {
+                    method: "POST",
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${longLivedToken}`
+                    },
+                    body: JSON.stringify({ targetUsername: target })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || "加好友失敗");
+                addLog(data.message || "成功加為好友！", "success");
+                input.value = "";
+                await fetchFriends(); // 重新拉取並更新列表
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // 更新我的自訂狀態訊息
+        async function updateMyStatus() {
+            const input = document.getElementById("my-status-input");
+            const msg = input.value.trim();
+            if (!connection) return alert("請先建立連線");
+            try {
+                await connection.invoke("UpdateStatusMessage", msg);
+                addLog(`已成功更新個人狀態訊息為: "${msg}"`, "success");
+                await fetchFriends();
+            } catch (e) {
+                addLog(`狀態更新失敗: ${e.message}`, "error");
+            }
+        }
+
+        // 彈出 Profile Modal
+        function showProfileModal(username) {
+            const modal = document.getElementById("profile-modal");
+            const content = document.getElementById("profile-modal-content");
+            
+            fetch(`${hostUrl}/api/users/${username}`, {
+                headers: { "Authorization": `Bearer ${longLivedToken}` }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("使用者不存在或無法載入檔案");
+                return res.json();
+            })
+            .then(data => {
+                document.getElementById("profile-username").innerText = data.username;
+                document.getElementById("profile-email").innerText = data.email || "未提供";
+                document.getElementById("profile-status").innerText = data.statusMessage || "無狀態訊息";
+                document.getElementById("profile-bio").innerText = data.bio || "這個人很懶，什麼都沒留下。";
+                
+                modal.style.display = "flex";
+                setTimeout(() => {
+                    modal.style.opacity = "1";
+                    content.style.transform = "scale(1)";
+                }, 10);
+            })
+            .catch(err => {
+                alert("無法載入個人資料: " + err.message);
+            });
+        }
+
+        // 關閉 Profile Modal
+        function closeProfileModal() {
+            const modal = document.getElementById("profile-modal");
+            const content = document.getElementById("profile-modal-content");
+            modal.style.opacity = "0";
+            content.style.transform = "scale(0.9)";
+            setTimeout(() => {
+                modal.style.display = "none";
+            }, 300);
+        }
+
+        // 切換聊天對象 (公共大廳 vs 一對一聯絡人)
+        async function selectChatTarget(target, type) {
+            const isSamePrivateTarget = type === "private"
+                && chatType === "private"
+                && canonicalUser(chatTarget) === canonicalUser(target);
+            if ((chatTarget === target && chatType === type) || isSamePrivateTarget) return;
+
+            // 清除 active class
+            document.querySelectorAll(".user-item").forEach(el => el.classList.remove("active"));
+            
+            chatTarget = target;
+            chatType = type;
+
+            // 標記 active 項目
+            const activeId = target === "lobby" ? "item-lobby" : `item-${target.toLowerCase()}`;
+            const activeEl = document.getElementById(activeId);
+            if (activeEl) activeEl.classList.add("active");
+
+            // 清除該聊天對象的未讀計數
+            unreadCounts[unreadKey(target)] = 0;
+            const badge = activeEl ? activeEl.querySelector(".unread-badge") : null;
+            if (badge) badge.remove();
+
+            // 更新 Header
+            const headerName = document.getElementById("current-room-name");
+            const typeTag = document.getElementById("room-type-tag");
+            
+            if (type === "group") {
+                headerName.innerText = `公共大廳 (${target})`;
+                headerName.innerHTML += ' <span class="room-type-tag public" id="room-type-tag">Public</span>';
+            } else {
+                headerName.innerText = `與 ${target} 的私聊`;
+                headerName.innerHTML += ' <span class="room-type-tag private" id="room-type-tag">Private</span>';
+            }
+
+            // 載入選中對話的歷史對話
+            await loadChatHistory();
+        }
+
+        // 未讀訊息處理
+        function incrementUnread(target) {
+            const key = unreadKey(target);
+            unreadCounts[key] = (unreadCounts[key] || 0) + 1;
+            
+            const activeId = target === "lobby" ? "item-lobby" : `item-${target.toLowerCase()}`;
+            const activeEl = document.getElementById(activeId);
+            if (activeEl) {
+                let badge = activeEl.querySelector(".unread-badge");
+                if (!badge) {
+                    badge = document.createElement("span");
+                    badge.className = "unread-badge";
+                    activeEl.appendChild(badge);
+                }
+                badge.innerText = `${unreadCounts[key]} 新`;
+            }
+        }
+
+        // 載入歷史紀錄 (整合 Room 歷史與 DM 歷史，皆享 HybridCache 加速)
+        async function loadChatHistory() {
+            const win = document.getElementById("messages-window");
+            win.innerHTML = '<div class="system-notification">正在從快取/資料庫拉取歷史對話...</div>';
+
+            const url = chatType === "group" 
+                ? `${hostUrl}/api/rooms/${chatTarget}/messages`
+                : `${hostUrl}/api/messages/dm/${chatTarget}`;
+
+            try {
+                const response = await fetch(url, {
+                    headers: { "Authorization": `Bearer ${longLivedToken}` }
+                });
+
+                if (!response.ok) throw new Error("無法取得對話紀錄");
+
+                const messages = await response.json();
+                
+                win.innerHTML = "";
+                if (messages.length === 0) {
+                    win.innerHTML = `<div class="system-notification">尚無聊天紀錄。開始發送第一條訊息吧！</div>`;
+                    return;
+                }
+
+                messages.forEach(m => {
+                    const direction = canonicalUser(m.username) === canonicalUser(currentUsername) ? "outgoing" : "incoming";
+                    appendMessage(m.username, m.message, direction, new Date(m.timestamp));
+                });
+            } catch (err) {
+                addLog(err.message, "error");
+                win.innerHTML = `<div class="system-notification" style="color: var(--danger-color);">載入歷史訊息失敗: ${err.message}</div>`;
+            }
+        }
+
+        // 發送訊息
+        async function sendMessage() {
+            const msgInput = document.getElementById("message-input");
+            const msg = msgInput.value.trim();
+            if (!msg || !connection) return;
+
+            try {
+                msgInput.value = "";
+                
+                if (chatType === "group") {
+                    // 大廳廣播
+                    await connection.invoke("SendMessageToRoom", chatTarget, msg);
+                } else {
+                    // 一對一私聊 (步驟三)
+                    await connection.invoke("SendPrivateMessage", chatTarget, msg);
+                    // 方案 B 設計：發送端在 invoke 成功後手動 append 自己的訊息
+                    appendMessage(currentUsername, msg, "outgoing");
+                }
+            } catch (e) {
+                addLog(`訊息發送失敗: ${e.message}`, "error");
+            }
+        }
+
+        function appendMessage(user, msg, direction, time = new Date()) {
+            const win = document.getElementById("messages-window");
+            
+            // 避免空通知造成的空白
+            if (win.querySelector(".system-notification") && win.children.length === 1) {
+                win.innerHTML = "";
+            }
+
+            const bubble = document.createElement("div");
+            bubble.className = `message-bubble ${direction}`;
+            
+            const meta = document.createElement("div");
+            meta.className = "msg-meta";
+            
+            const nameSpan = document.createElement("span");
+            nameSpan.className = "msg-name";
+            nameSpan.innerText = user;
+
+            const timeSpan = document.createElement("span");
+            timeSpan.className = "msg-time";
+            timeSpan.innerText = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            meta.appendChild(nameSpan);
+            meta.appendChild(timeSpan);
+
+            const content = document.createElement("div");
+            content.className = "msg-content";
+            content.innerText = msg;
+
+            bubble.appendChild(meta);
+            bubble.appendChild(content);
+
+            win.appendChild(bubble);
+            win.scrollTop = win.scrollHeight;
+        }
+
+        function appendSystemNotification(text) {
+            const win = document.getElementById("messages-window");
+            const note = document.createElement("div");
+            note.className = "system-notification";
+            note.innerText = text;
+            win.appendChild(note);
+            win.scrollTop = win.scrollHeight;
+        }
+
+        // 深色模式切換
+        const _moonSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+        const _sunSvg  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+
+        function _applyThemeBtn(theme) {
+            const btn = document.getElementById("theme-toggle");
+            if (!btn) return;
+            const dark = theme === "dark";
+            btn.innerHTML = dark ? _sunSvg : _moonSvg;
+            btn.title = dark ? "切換淺色" : "切換深色";
+            btn.setAttribute("aria-label", dark ? "切換淺色模式" : "切換深色模式");
+        }
+
+        function toggleTheme() {
+            const dark = document.documentElement.getAttribute("data-theme") === "dark";
+            const next = dark ? "light" : "dark";
+            document.documentElement.setAttribute("data-theme", next);
+            try { localStorage.setItem("chat-theme", next); } catch(_) {}
+            _applyThemeBtn(next);
+        }
+
+        // 頁面載入後同步按鈕圖示
+        _applyThemeBtn(document.documentElement.getAttribute("data-theme") || "light");
+    </script>
+    <!-- 個人資訊彈窗 (Profile Modal) -->
+    <div id="profile-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.35); justify-content: center; align-items: center; z-index: 1000; opacity: 0; transition: opacity 0.2s ease;">
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; width: 90%; max-width: 400px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12); transform: scale(0.95); transition: transform 0.2s ease;" id="profile-modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">
+                <h3 style="font-size: 15px; font-weight: 700; color: #1e293b;" id="profile-modal-title">個人檔案</h3>
+                <button onclick="closeProfileModal()" aria-label="關閉" style="width: auto; height: auto; background: transparent; border: none; padding: 4px; color: #94a3b8; font-size: 20px; font-weight: 400; line-height: 1; cursor: pointer; border-radius: 4px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">&times;</button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 14px; font-size: 14px; color: #1e293b;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px;">使用者名稱</span>
+                    <span id="profile-username" style="font-size: 15px; font-weight: 600;">-</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px;">電子信箱</span>
+                    <span id="profile-email" style="color: #2563eb;">-</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px;">狀態訊息</span>
+                    <span id="profile-status" style="font-style: italic; color: #16a34a;">-</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px;">關於我</span>
+                    <span id="profile-bio" style="background: #f8fafc; padding: 10px; border-radius: 6px; font-size: 13px; line-height: 1.5; border: 1px solid #e2e8f0; color: #475569;">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
