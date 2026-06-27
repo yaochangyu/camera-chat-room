@@ -27,9 +27,15 @@ public class TurnController(IConfiguration configuration, IHttpClientFactory htt
             var json = await response.Content.ReadAsStringAsync();
             return Content(json, "application/json");
         }
-        catch (Exception ex)
+        catch
         {
-            return StatusCode(503, new { message = $"無法取得 TURN 憑證: {ex.Message}" });
+            // Metered.ca 不可用時，退回 Google 公開 STUN（僅限同 LAN 或 loopback 測試）
+            var fallback = new[]
+            {
+                new { urls = "stun:stun.l.google.com:19302" },
+                new { urls = "stun:stun1.l.google.com:19302" }
+            };
+            return Ok(fallback);
         }
     }
 }

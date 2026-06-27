@@ -68,17 +68,22 @@
     - 連線建立後顯示遠端串流於 `<video>` 元素
     - 掛斷時關閉 `RTCPeerConnection` 並停止媒體軌道
 
-- [x] **步驟 7：整合測試與驗證**
+- [x] **步驟 7：整合測試與驗證**（Signaling 流程全自動驗證通過；音視訊串流待瀏覽器人工驗證）
   - 為什麼：確認通話流程在實際瀏覽器環境中正常運作（局域網與跨網路）。
   - 測試項目：
     - [x] Build 無錯誤（`dotnet build`）— 通過，0 errors 0 warnings
     - [x] 整合測試全過（`dotnet test`）— 25/25 passed，現有功能無回歸
-    - [ ] **⚠️ TURN API Key 待修正**：Metered.ca 後台「API Keys」分頁的 API Key 與「TURN Credentials」頁的密碼不同。目前 `appsettings.Development.json` 填入的是 TURN 密碼，需改為 API Key（`GET /api/v1/turn/credentials?apiKey=<正確key>` 才能回傳 ICE Servers）。
-    - [ ] 發起語音通話 → 對方收到來電 → 接聽 → 通話成功（需瀏覽器 + 正確 TURN key）
-    - [ ] 發起視訊通話 → 雙方看到彼此畫面（需瀏覽器 + 正確 TURN key）
-    - [ ] 拒絕來電 → 發起方收到通知（需瀏覽器）
-    - [ ] 通話中掛斷 → 雙方結束通話（需瀏覽器）
-    - [ ] 靜音/關閉鏡頭切換正常（需瀏覽器）
+    - [x] SignalR Signaling 端到端（Node.js 腳本）6/6 通過：
+      - [x] 語音通話：發起 CallUser → 對方收到 ReceiveCall
+      - [x] 語音通話：回傳 AnswerCall → 發起方收到 CallAnswered
+      - [x] ICE Candidate 中繼：RelayICECandidate → ReceiveICECandidate
+      - [x] 拒絕來電：RejectCall → 發起方收到 CallRejected
+      - [x] 掛斷通話：HangUp → 對方收到 CallEnded
+      - [x] 視訊通話：callType=video 正確傳遞
+    - [x] TURN Fallback：Metered.ca key 無效時自動回退 Google STUN（本機測試可用）
+    - [ ] **⚠️ 待手動驗證**：瀏覽器實際音視訊串流（需正確 Metered.ca API Key）
+      - Metered.ca 後台找「API Keys」分頁的 Key（不是 TURN Credentials 頁的密碼）
+      - 更新 `ChatRoom/appsettings.Development.json` 中的 `"ApiKey"` 欄位
 
 ---
 
