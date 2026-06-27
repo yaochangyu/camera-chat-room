@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# 本機敏感設定（含 TURN 憑證），不進 git
+appsettings.Development.json
+
 # User-specific files
 *.rsuser
 *.suo
