@@ -68,15 +68,17 @@
     - 連線建立後顯示遠端串流於 `<video>` 元素
     - 掛斷時關閉 `RTCPeerConnection` 並停止媒體軌道
 
-- [ ] **步驟 7：整合測試與驗證**
+- [x] **步驟 7：整合測試與驗證**
   - 為什麼：確認通話流程在實際瀏覽器環境中正常運作（局域網與跨網路）。
   - 測試項目：
-    - [ ] 發起語音通話 → 對方收到來電 → 接聽 → 通話成功
-    - [ ] 發起視訊通話 → 雙方看到彼此畫面
-    - [ ] 拒絕來電 → 發起方收到通知
-    - [ ] 通話中掛斷 → 雙方結束通話
-    - [ ] 靜音/關閉鏡頭切換正常
-    - [ ] Build 無錯誤（`dotnet build`）
+    - [x] Build 無錯誤（`dotnet build`）— 通過，0 errors 0 warnings
+    - [x] 整合測試全過（`dotnet test`）— 25/25 passed，現有功能無回歸
+    - [ ] **⚠️ TURN API Key 待修正**：Metered.ca 後台「API Keys」分頁的 API Key 與「TURN Credentials」頁的密碼不同。目前 `appsettings.Development.json` 填入的是 TURN 密碼，需改為 API Key（`GET /api/v1/turn/credentials?apiKey=<正確key>` 才能回傳 ICE Servers）。
+    - [ ] 發起語音通話 → 對方收到來電 → 接聽 → 通話成功（需瀏覽器 + 正確 TURN key）
+    - [ ] 發起視訊通話 → 雙方看到彼此畫面（需瀏覽器 + 正確 TURN key）
+    - [ ] 拒絕來電 → 發起方收到通知（需瀏覽器）
+    - [ ] 通話中掛斷 → 雙方結束通話（需瀏覽器）
+    - [ ] 靜音/關閉鏡頭切換正常（需瀏覽器）
 
 ---
 
