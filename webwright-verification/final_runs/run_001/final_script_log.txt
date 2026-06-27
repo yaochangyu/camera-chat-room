@@ -1,0 +1,27 @@
+step 1 action: Charlie 和 Bob 平行登入並建立 SignalR 連線
+  Charlie 狀態: 已連線
+  Bob 狀態: 已連線
+  [PASS] CP1: Charlie 已連線
+  [PASS] CP2: Bob 已連線
+step 2 action: 等待 Charlie 好友列表中 Bob 在線（通話按鈕啟用）
+  [PASS] CP3: 好友列表顯示 Bob，通話按鈕可點擊
+step 3 action: Charlie 點擊語音通話按鈕撥給 Bob
+  Charlie 撥號覆蓋層顯示: 正在呼叫 Bob...
+  [PASS] CP4: Charlie 撥號覆蓋層出現
+  Bob 來電 Modal - 來電者: charlie, 類型: 語音通話
+  [PASS] CP5: Bob 看到來電 Modal，顯示 Charlie 來電
+  [PASS] CP6: 來電類型正確顯示「語音通話」
+step 4 action: Bob 拒絕來電，驗證 Charlie 撥號覆蓋層自動關閉
+  [PASS] CP7: Bob 拒絕後 Charlie 撥號覆蓋層自動關閉
+step 5 action: Charlie 重新撥號，Bob 接聽
+  [PASS] CP8: Bob 接聽後，雙方均顯示通話中 UI
+step 6 action: Charlie 掛斷，驗證雙方覆蓋層消失
+  [PASS] CP10: 掛斷後雙方覆蓋層均消失
+step 7 action: Charlie 點擊視訊通話按鈕（📹）
+  來電類型: 視訊通話
+  [PASS] CP9: 視訊通話來電 Modal 顯示「視訊通話」
+
+=== 驗證結果 ===
+所有 10 個 Critical Points 均通過 ✓
+WebRTC 通話 Signaling 流程正確運作
+狀態: SUCCESS

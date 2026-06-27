@@ -1144,7 +1144,10 @@
             });
 
             connection.on("ReceiveICECandidate", async (username, candidate) => {
-                if (!peerConnection) return;
+                if (!peerConnection) {
+                    iceCandidateQueue.push(candidate);
+                    return;
+                }
                 try {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(JSON.parse(candidate)));
                 } catch (e) {
@@ -1619,6 +1622,8 @@
         let pendingCallType = null;
         let isMuted = false;
         let isCameraOff = false;
+        // 在 peerConnection 建立前抵達的 ICE Candidate 暫存佇列
+        let iceCandidateQueue = [];
 
         async function getTurnCredentials() {
             const res = await fetch(`${hostUrl}/api/turn/credentials`, {
@@ -1707,6 +1712,13 @@
                 document.getElementById("local-video").srcObject = localStream;
 
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(pendingCallOffer)));
+
+                // 套用接聽前已排隊的 ICE Candidate
+                while (iceCandidateQueue.length > 0) {
+                    const c = iceCandidateQueue.shift();
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(JSON.parse(c))).catch(() => {});
+                }
+
                 const answer = await peerConnection.createAnswer();
                 await peerConnection.setLocalDescription(answer);
 
@@ -1764,6 +1776,7 @@
             activeCallUser = null;
             isMuted = false;
             isCameraOff = false;
+            iceCandidateQueue = [];
             const rv = document.getElementById("remote-video");
             const lv = document.getElementById("local-video");
             if (rv) rv.srcObject = null;
