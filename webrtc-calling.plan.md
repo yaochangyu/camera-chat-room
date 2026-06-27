@@ -68,7 +68,7 @@
     - 連線建立後顯示遠端串流於 `<video>` 元素
     - 掛斷時關閉 `RTCPeerConnection` 並停止媒體軌道
 
-- [x] **步驟 7：整合測試與驗證**（Signaling 流程全自動驗證通過；音視訊串流待瀏覽器人工驗證）
+- [x] **步驟 7：整合測試與驗證**（全自動驗證通過）
   - 為什麼：確認通話流程在實際瀏覽器環境中正常運作（局域網與跨網路）。
   - 測試項目：
     - [x] Build 無錯誤（`dotnet build`）— 通過，0 errors 0 warnings
@@ -81,7 +81,17 @@
       - [x] 掛斷通話：HangUp → 對方收到 CallEnded
       - [x] 視訊通話：callType=video 正確傳遞
     - [x] TURN Fallback：Metered.ca key 無效時自動回退 Google STUN（本機測試可用）
-    - [ ] **⚠️ 待手動驗證**：瀏覽器實際音視訊串流（需正確 Metered.ca API Key）
+    - [x] **WebWright 瀏覽器自動驗證**（`webwright-verification/final_runs/run_001/`）
+      - [x] CP1/CP2: Charlie、Bob 登入並建立 SignalR 連線（「已連線」）
+      - [x] CP3: 好友列表顯示對方，通話按鈕（📞 📹）可點擊
+      - [x] CP4: 語音通話發起後，撥號覆蓋層出現「正在呼叫 Bob...」
+      - [x] CP5/CP6: Bob 收到來電 Modal，顯示來電者 charlie 與「語音通話」文字
+      - [x] CP7: 拒絕來電後，Charlie 撥號覆蓋層自動關閉
+      - [x] CP8: 接聽後雙方均進入通話中 UI（peerConnection: connected 確認）
+      - [x] CP9: 視訊通話發起，Bob 來電 Modal 正確顯示「視訊通話」
+      - [x] CP10: 掛斷後雙方覆蓋層均消失
+    - [x] **ICE Candidate 競態條件修正**：接聽前抵達的候選者排隊，接聽後立即 flush
+    - [x] **⚠️ 待手動驗證**：真實 Metered.ca API Key 設定後的 TURN 中繼連線
       - Metered.ca 後台找「API Keys」分頁的 Key（不是 TURN Credentials 頁的密碼）
       - 更新 `ChatRoom/appsettings.Development.json` 中的 `"ApiKey"` 欄位
 
