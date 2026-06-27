@@ -118,6 +118,9 @@ builder.Services.AddSingleton<JwtTokenService>();
 // 必須在 AddSignalR() 之前註冊，才能覆寫預設 ClaimTypes.NameIdentifier 行為
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, ChatRoom.Services.NameUserIdProvider>();
 
+// 註冊 HttpClient（TURN 憑證 API 使用）
+builder.Services.AddHttpClient();
+
 // 註冊 MVC Controllers
 builder.Services.AddControllers();
 

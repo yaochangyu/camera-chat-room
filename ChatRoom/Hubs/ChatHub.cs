@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Logging;
 
 namespace ChatRoom.Hubs
 {
@@ -209,6 +210,46 @@ namespace ChatRoom.Hubs
         private async Task BroadcastOnlineUsers()
         {
             await Clients.All.UpdateUserList(_onlineUsers.Keys.ToArray());
+        }
+
+        public async Task CallUser(CallOfferDto dto)
+        {
+            var caller = UsernameNormalizer.NormalizeNullable(Context.User?.Identity?.Name);
+            var target = UsernameNormalizer.NormalizeNullable(dto.TargetUsername);
+            if (string.IsNullOrEmpty(caller) || string.IsNullOrEmpty(target)) return;
+            await Clients.User(target).ReceiveCall(caller, dto.SdpOffer, dto.CallType);
+        }
+
+        public async Task AnswerCall(CallAnswerDto dto)
+        {
+            var callee = UsernameNormalizer.NormalizeNullable(Context.User?.Identity?.Name);
+            var caller = UsernameNormalizer.NormalizeNullable(dto.CallerUsername);
+            if (string.IsNullOrEmpty(callee) || string.IsNullOrEmpty(caller)) return;
+            await Clients.User(caller).CallAnswered(callee, dto.SdpAnswer);
+        }
+
+        public async Task RejectCall(string callerUsername)
+        {
+            var callee = UsernameNormalizer.NormalizeNullable(Context.User?.Identity?.Name);
+            var caller = UsernameNormalizer.NormalizeNullable(callerUsername);
+            if (string.IsNullOrEmpty(callee) || string.IsNullOrEmpty(caller)) return;
+            await Clients.User(caller).CallRejected(callee);
+        }
+
+        public async Task HangUp(string targetUsername)
+        {
+            var caller = UsernameNormalizer.NormalizeNullable(Context.User?.Identity?.Name);
+            var target = UsernameNormalizer.NormalizeNullable(targetUsername);
+            if (string.IsNullOrEmpty(caller) || string.IsNullOrEmpty(target)) return;
+            await Clients.User(target).CallEnded(caller);
+        }
+
+        public async Task RelayICECandidate(IceCandidateDto dto)
+        {
+            var sender = UsernameNormalizer.NormalizeNullable(Context.User?.Identity?.Name);
+            var target = UsernameNormalizer.NormalizeNullable(dto.TargetUsername);
+            if (string.IsNullOrEmpty(sender) || string.IsNullOrEmpty(target)) return;
+            await Clients.User(target).ReceiveICECandidate(sender, dto.Candidate);
         }
     }
 }

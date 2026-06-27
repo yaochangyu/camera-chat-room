@@ -34,17 +34,19 @@ chat-room/
 │   ├── FriendsController.cs  # 好友清單與加好友 API
 │   ├── MessagesController.cs # 私訊歷史訊息 API
 │   ├── RoomsController.cs    # 聊天室歷史訊息 API
+│   ├── TurnController.cs     # TURN 短效憑證 API（WebRTC ICE Server）
 │   └── UsersController.cs    # 使用者個人資料 API
 ├── Data/
 │   └── ChatDbContext.cs      # EF Core DbContext 類別 (SQLite)
 ├── Hubs/
-│   ├── IChatClient.cs        # 強型別 Hub 用戶端介面
-│   └── ChatHub.cs            # SignalR 聊天室 Hub 類別
+│   ├── IChatClient.cs        # 強型別 Hub 用戶端介面（含通話 Signaling）
+│   └── ChatHub.cs            # SignalR 聊天室 Hub 類別（含通話 Signaling）
 ├── Models/
 │   ├── ChatMessage.cs        # 聊天訊息資料模型
 │   ├── User.cs               # 使用者個人資訊檔案模型
 │   ├── Friendship.cs         # 好友關係模型
 │   ├── AddFriendRequest.cs   # 好友 API 請求資料傳輸模型 (DTO)
+│   ├── CallSignal.cs         # WebRTC 通話 Signaling DTO
 │   └── LoginRequest.cs       # 登入 API 請求資料傳輸模型 (DTO)
 ├── Services/
 │   ├── JwtTokenService.cs    # 產生 API 與 Hub Token 的驗證服務

@@ -596,6 +596,172 @@
             border-color: #2d3144 !important;
             color: #9ca3af !important;
         }
+
+        /* ===== WebRTC 通話 UI ===== */
+        #incoming-call-modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.55);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .incoming-call-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 32px 36px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+            min-width: 260px;
+        }
+
+        .incoming-call-avatar {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+        }
+
+        .incoming-call-name {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .incoming-call-type {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .call-action-btns {
+            display: flex;
+            gap: 20px;
+            margin-top: 8px;
+        }
+
+        .call-action-btns button {
+            width: 56px; height: 56px;
+            border-radius: 50%;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s, opacity 0.15s;
+        }
+
+        .call-action-btns button:hover { opacity: 0.88; }
+        .call-action-btns button:active { transform: scale(0.92); }
+        .btn-accept { background: #16a34a; }
+        .btn-reject  { background: #dc2626; }
+
+        /* 通話覆蓋層 */
+        #call-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #0d1117;
+            display: none;
+            flex-direction: column;
+            z-index: 1500;
+        }
+
+        #remote-video {
+            flex: 1;
+            width: 100%;
+            object-fit: cover;
+            background: #1b1e27;
+        }
+
+        #local-video {
+            position: absolute;
+            bottom: 96px; right: 20px;
+            width: 140px; height: 90px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.2);
+            background: #252a38;
+        }
+
+        #call-status-label {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.9);
+            font-size: 14px;
+            font-weight: 600;
+            background: rgba(0,0,0,0.45);
+            padding: 6px 18px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+
+        .call-controls-bar {
+            position: absolute;
+            bottom: 0; left: 0;
+            width: 100%; height: 84px;
+            background: rgba(13,17,23,0.92);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .ctrl-btn {
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.12);
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+
+        .ctrl-btn:hover { background: rgba(255,255,255,0.22); }
+        .ctrl-btn.muted, .ctrl-btn.cam-off { background: rgba(255,255,255,0.28); }
+        .ctrl-btn.hangup { background: #dc2626; width: 56px; height: 56px; font-size: 22px; }
+        .ctrl-btn.hangup:hover { background: #b91c1c; }
+
+        /* 好友列表通話小按鈕 */
+        .call-icon-btn {
+            width: auto !important;
+            padding: 3px 6px !important;
+            font-size: 12px !important;
+            background: transparent !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-muted) !important;
+            border-radius: 4px !important;
+            line-height: 1.4;
+        }
+
+        .call-icon-btn:hover:not(:disabled) {
+            background: #f1f5f9 !important;
+            color: var(--text-main) !important;
+        }
+
+        .call-icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        [data-theme="dark"] .call-icon-btn:hover:not(:disabled) {
+            background: #252a38 !important;
+        }
+
+        [data-theme="dark"] #incoming-call-modal { background: rgba(0,0,0,0.7); }
     </style>
 </head>
 <body>
@@ -945,6 +1111,47 @@
                 addLog(`[伺服器] ${msg}`);
             });
 
+            // 通話 Signaling 事件
+            connection.on("ReceiveCall", (callerUsername, sdpOffer, callType) => {
+                pendingCallerUsername = callerUsername;
+                pendingCallOffer = sdpOffer;
+                pendingCallType = callType;
+                document.getElementById("incoming-caller-name").innerText = callerUsername;
+                document.getElementById("incoming-call-type").innerText = callType === 'video' ? '視訊通話' : '語音通話';
+                document.getElementById("incoming-call-modal").style.display = "flex";
+                addLog(`收到 ${callerUsername} 的${callType === 'video' ? '視訊' : '語音'}通話`);
+            });
+
+            connection.on("CallAnswered", async (callerUsername, sdpAnswer) => {
+                if (!peerConnection) return;
+                try {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(sdpAnswer)));
+                    document.getElementById("call-status-label").innerText = `與 ${activeCallUser} 通話中`;
+                    addLog(`${callerUsername} 接聽了`, "success");
+                } catch (e) {
+                    addLog(`設定遠端描述失敗: ${e.message}`, "error");
+                }
+            });
+
+            connection.on("CallRejected", (callerUsername) => {
+                addLog(`${callerUsername} 拒絕了通話`);
+                cleanupCall();
+            });
+
+            connection.on("CallEnded", (username) => {
+                addLog(`${username} 掛斷了通話`);
+                cleanupCall();
+            });
+
+            connection.on("ReceiveICECandidate", async (username, candidate) => {
+                if (!peerConnection) return;
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(JSON.parse(candidate)));
+                } catch (e) {
+                    addLog(`ICE 接收失敗: ${e.message}`, "error");
+                }
+            });
+
             // 連線生命週期
             connection.onreconnecting(error => {
                 updateConnectionStatus("reconnecting");
@@ -1099,6 +1306,22 @@
                     badge.innerText = `${count} 新`;
                     actionDiv.appendChild(badge);
                 }
+
+                const audioBtn = document.createElement("button");
+                audioBtn.className = "call-icon-btn";
+                audioBtn.title = "語音通話";
+                audioBtn.innerText = "📞";
+                audioBtn.disabled = !f.isOnline;
+                audioBtn.onclick = (e) => { e.stopPropagation(); initiateCall(f.username, 'audio'); };
+                actionDiv.appendChild(audioBtn);
+
+                const videoBtn = document.createElement("button");
+                videoBtn.className = "call-icon-btn";
+                videoBtn.title = "視訊通話";
+                videoBtn.innerText = "📹";
+                videoBtn.disabled = !f.isOnline;
+                videoBtn.onclick = (e) => { e.stopPropagation(); initiateCall(f.username, 'video'); };
+                actionDiv.appendChild(videoBtn);
 
                 const infoBtn = document.createElement("button");
                 infoBtn.onclick = (e) => {
@@ -1386,7 +1609,219 @@
 
         // 頁面載入後同步按鈕圖示
         _applyThemeBtn(document.documentElement.getAttribute("data-theme") || "light");
+
+        // ===== WebRTC 通話 =====
+        let peerConnection = null;
+        let localStream = null;
+        let activeCallUser = null;
+        let pendingCallerUsername = null;
+        let pendingCallOffer = null;
+        let pendingCallType = null;
+        let isMuted = false;
+        let isCameraOff = false;
+
+        async function getTurnCredentials() {
+            const res = await fetch(`${hostUrl}/api/turn/credentials`, {
+                headers: { "Authorization": `Bearer ${longLivedToken}` }
+            });
+            if (!res.ok) throw new Error("無法取得 TURN 憑證");
+            return await res.json();
+        }
+
+        function createPeerConnection(iceServers) {
+            const pc = new RTCPeerConnection({ iceServers });
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate && activeCallUser && connection) {
+                    connection.invoke("RelayICECandidate", {
+                        targetUsername: activeCallUser,
+                        candidate: JSON.stringify(event.candidate)
+                    }).catch(e => addLog(`ICE 傳送失敗: ${e.message}`, "error"));
+                }
+            };
+
+            pc.ontrack = (event) => {
+                const remoteVideo = document.getElementById("remote-video");
+                if (remoteVideo) remoteVideo.srcObject = event.streams[0];
+            };
+
+            pc.onconnectionstatechange = () => {
+                const state = pc.connectionState;
+                addLog(`WebRTC 狀態: ${state}`);
+                if (state === "disconnected" || state === "failed" || state === "closed") {
+                    cleanupCall();
+                }
+            };
+
+            return pc;
+        }
+
+        async function initiateCall(targetUsername, callType) {
+            if (!connection) return alert("請先建立 SignalR 連線");
+            if (peerConnection) return alert("已有通話進行中");
+
+            try {
+                activeCallUser = targetUsername;
+                const iceServers = await getTurnCredentials();
+                peerConnection = createPeerConnection(iceServers);
+
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: callType === "video"
+                });
+                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+                document.getElementById("local-video").srcObject = localStream;
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                await connection.invoke("CallUser", {
+                    targetUsername,
+                    sdpOffer: JSON.stringify(offer),
+                    callType
+                });
+
+                showCallOverlay(targetUsername, callType, true);
+                addLog(`正在呼叫 ${targetUsername}...`);
+            } catch (e) {
+                addLog(`發起通話失敗: ${e.message}`, "error");
+                cleanupCall();
+            }
+        }
+
+        async function acceptCall() {
+            if (!pendingCallerUsername || !pendingCallOffer) return;
+            document.getElementById("incoming-call-modal").style.display = "none";
+
+            try {
+                activeCallUser = pendingCallerUsername;
+                const callType = pendingCallType;
+                const iceServers = await getTurnCredentials();
+                peerConnection = createPeerConnection(iceServers);
+
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: callType === "video"
+                });
+                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+                document.getElementById("local-video").srcObject = localStream;
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(pendingCallOffer)));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+
+                await connection.invoke("AnswerCall", {
+                    callerUsername: pendingCallerUsername,
+                    sdpAnswer: JSON.stringify(answer)
+                });
+
+                showCallOverlay(pendingCallerUsername, callType, false);
+                addLog(`已接聽 ${pendingCallerUsername} 的通話`, "success");
+
+                pendingCallerUsername = null;
+                pendingCallOffer = null;
+                pendingCallType = null;
+            } catch (e) {
+                addLog(`接聽失敗: ${e.message}`, "error");
+                cleanupCall();
+            }
+        }
+
+        async function rejectIncomingCall() {
+            if (pendingCallerUsername && connection) {
+                try {
+                    await connection.invoke("RejectCall", pendingCallerUsername);
+                } catch (e) {
+                    addLog(`拒絕通話失敗: ${e.message}`, "error");
+                }
+            }
+            pendingCallerUsername = null;
+            pendingCallOffer = null;
+            pendingCallType = null;
+            document.getElementById("incoming-call-modal").style.display = "none";
+        }
+
+        async function hangUp() {
+            if (activeCallUser && connection) {
+                try {
+                    await connection.invoke("HangUp", activeCallUser);
+                } catch (e) {
+                    addLog(`掛斷失敗: ${e.message}`, "error");
+                }
+            }
+            cleanupCall();
+        }
+
+        function cleanupCall() {
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+                localStream = null;
+            }
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            activeCallUser = null;
+            isMuted = false;
+            isCameraOff = false;
+            const rv = document.getElementById("remote-video");
+            const lv = document.getElementById("local-video");
+            if (rv) rv.srcObject = null;
+            if (lv) lv.srcObject = null;
+            document.getElementById("call-overlay").style.display = "none";
+        }
+
+        function toggleMute() {
+            if (!localStream) return;
+            isMuted = !isMuted;
+            localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+            const btn = document.getElementById("mute-btn");
+            btn.innerText = isMuted ? "🔇" : "🎙️";
+            btn.classList.toggle("muted", isMuted);
+        }
+
+        function toggleCamera() {
+            if (!localStream) return;
+            isCameraOff = !isCameraOff;
+            localStream.getVideoTracks().forEach(t => t.enabled = !isCameraOff);
+            const btn = document.getElementById("camera-btn");
+            btn.innerText = isCameraOff ? "🚫" : "📷";
+            btn.classList.toggle("cam-off", isCameraOff);
+        }
+
+        function showCallOverlay(username, callType, isCalling) {
+            document.getElementById("call-status-label").innerText =
+                isCalling ? `正在呼叫 ${username}...` : `與 ${username} 通話中`;
+            document.getElementById("camera-btn").style.display =
+                callType === "video" ? "flex" : "none";
+            document.getElementById("call-overlay").style.display = "flex";
+        }
     </script>
+    <!-- 來電通知 Modal -->
+    <div id="incoming-call-modal">
+        <div class="incoming-call-card">
+            <div class="incoming-call-avatar">👤</div>
+            <span class="incoming-call-name" id="incoming-caller-name"></span>
+            <span class="incoming-call-type" id="incoming-call-type">語音通話</span>
+            <div class="call-action-btns">
+                <button class="btn-accept" onclick="acceptCall()" title="接聽">📞</button>
+                <button class="btn-reject" onclick="rejectIncomingCall()" title="拒絕">📵</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通話覆蓋層 -->
+    <div id="call-overlay">
+        <span id="call-status-label">通話中...</span>
+        <video id="remote-video" autoplay playsinline></video>
+        <video id="local-video" autoplay playsinline muted></video>
+        <div class="call-controls-bar">
+            <button id="mute-btn" class="ctrl-btn" onclick="toggleMute()" title="靜音">🎙️</button>
+            <button id="camera-btn" class="ctrl-btn" onclick="toggleCamera()" title="鏡頭">📷</button>
+            <button class="ctrl-btn hangup" onclick="hangUp()" title="掛斷">📵</button>
+        </div>
+    </div>
+
     <!-- 個人資訊彈窗 (Profile Modal) -->
     <div id="profile-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.35); justify-content: center; align-items: center; z-index: 1000; opacity: 0; transition: opacity 0.2s ease;">
         <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; width: 90%; max-width: 400px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12); transform: scale(0.95); transition: transform 0.2s ease;" id="profile-modal-content">
