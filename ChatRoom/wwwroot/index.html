@@ -421,6 +421,21 @@
             flex-shrink: 0;
         }
 
+        .input-call-btn {
+            background: transparent !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-muted) !important;
+        }
+
+        .input-call-btn:hover:not(:disabled) {
+            background: #f1f5f9 !important;
+            color: var(--text-main) !important;
+        }
+
+        [data-theme="dark"] .input-call-btn:hover:not(:disabled) {
+            background: #252a38 !important;
+        }
+
         .logged-in-only {
             display: none;
         }
@@ -762,6 +777,148 @@
         }
 
         [data-theme="dark"] #incoming-call-modal { background: rgba(0,0,0,0.7); }
+
+        /* ===== 手機響應式佈局（Line 風格兩屏導航） ===== */
+
+        /* 返回按鈕：桌面隱藏，手機顯示 */
+        #mobile-back-btn {
+            display: none;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 20px;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        #mobile-back-btn:hover { background: #f1f5f9; }
+        [data-theme="dark"] #mobile-back-btn:hover { background: #252a38; }
+
+        /* 通話按鈕群組（聊天 Header 右側，桌面隱藏） */
+        #header-call-btns {
+            display: none;
+            gap: 4px;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+
+        #header-call-btns .call-icon-btn {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                overflow: hidden;
+                align-items: stretch;
+            }
+
+            /* Container 成為滑動視窗的裁切框 */
+            .app-container {
+                position: relative;
+                overflow: hidden;
+                width: 100%;
+                height: 100dvh;
+                max-width: 100%;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr;
+            }
+
+            /* ── Screen 1：好友清單（預設可見） ── */
+            .sidebar {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                border-right: none;
+                transform: translateX(0);
+                transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+                will-change: transform;
+                z-index: 2;
+            }
+
+            /* ── Screen 2：對話視窗（預設隱藏於右側） ── */
+            .chat-area {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100dvh;
+                transform: translateX(100%);
+                transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+                will-change: transform;
+                z-index: 1;
+            }
+
+            /* 進入對話：Sidebar 滑左退場，Chat 滑入 */
+            .app-container.mobile-chat-open .sidebar {
+                transform: translateX(-30%);
+            }
+
+            .app-container.mobile-chat-open .chat-area {
+                transform: translateX(0);
+                z-index: 3;
+            }
+
+            /* 顯示返回按鈕與通話按鈕 */
+            #mobile-back-btn {
+                display: flex;
+            }
+
+            #header-call-btns {
+                display: flex;
+            }
+
+            .chat-header {
+                gap: 8px;
+                padding: 0 12px;
+            }
+
+            /* 訊息泡泡手機更寬 */
+            .message-bubble {
+                max-width: 82%;
+            }
+
+            .messages-window {
+                padding: 14px 12px;
+            }
+
+            .chat-input-area {
+                padding: 0 10px;
+            }
+
+            /* 手機用 Header 通話鈕，隱藏輸入列通話鈕 */
+            .input-call-btn {
+                display: none !important;
+            }
+
+            /* 44px+ 觸控目標 */
+            button {
+                min-height: 44px;
+            }
+
+            .chat-input-area button {
+                width: 44px;
+                height: 44px;
+            }
+
+            .log-console {
+                max-height: 72px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -833,12 +990,23 @@
         <div class="chat-area">
             <!-- Chat Header -->
             <div class="chat-header">
+                <!-- 返回按鈕（手機顯示） -->
+                <button id="mobile-back-btn" onclick="goBackToFriendList()" aria-label="返回好友清單">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                </button>
                 <div class="room-info">
                     <span class="room-name" id="current-room-name">
                         公共大廳 (lobby)
                         <span class="room-type-tag public" id="room-type-tag">Public</span>
                     </span>
                     <span class="user-count" id="current-user-display">請先登入並建立 WebSocket 連線以發言</span>
+                </div>
+                <!-- 通話按鈕群組（手機顯示，私聊時啟用） -->
+                <div id="header-call-btns">
+                    <button id="header-audio-btn" class="call-icon-btn" title="語音通話" disabled>📞</button>
+                    <button id="header-video-btn" class="call-icon-btn" title="視訊通話" disabled>📹</button>
                 </div>
             </div>
 
@@ -850,6 +1018,17 @@
             <!-- Chat Input -->
             <div class="chat-input-area">
                 <input type="text" id="message-input" placeholder="輸入訊息..." onkeydown="if(event.key==='Enter') sendMessage()" disabled>
+                <button id="input-audio-btn" class="input-call-btn" title="語音通話" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12 19.79 19.79 0 0 1 1.07 3.4 2 2 0 0 1 3.05 1.27h3a2 2 0 0 1 2 1.72c.127.96.36 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/>
+                    </svg>
+                </button>
+                <button id="input-video-btn" class="input-call-btn" title="視訊通話" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="23 7 16 12 23 17 23 7"/>
+                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                    </svg>
+                </button>
                 <button id="send-btn" onclick="sendMessage()" disabled>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -866,6 +1045,15 @@
         let connection = null;
         let longLivedToken = null;
         let currentUsername = "";
+
+        /* ── 手機兩屏導航 ── */
+        function openMobileChat() {
+            document.querySelector('.app-container').classList.add('mobile-chat-open');
+        }
+
+        function goBackToFriendList() {
+            document.querySelector('.app-container').classList.remove('mobile-chat-open');
+        }
 
         function parseJwt(token) {
             const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
@@ -1438,6 +1626,10 @@
             const isSamePrivateTarget = type === "private"
                 && chatType === "private"
                 && canonicalUser(chatTarget) === canonicalUser(target);
+
+            // 手機：無論是否同一對象，一律切換到第二頁（Screen 2）
+            openMobileChat();
+
             if ((chatTarget === target && chatType === type) || isSamePrivateTarget) return;
 
             // 清除 active class
@@ -1445,6 +1637,26 @@
             
             chatTarget = target;
             chatType = type;
+            openMobileChat();
+
+            // 更新通話按鈕（Header 手機 + 輸入列桌面，私聊依好友在線狀態啟用）
+            const friend = type === 'private'
+                ? friends.find(f => canonicalUser(f.username) === canonicalUser(target))
+                : null;
+            const online = friend ? friend.isOnline : false;
+
+            [
+                ['header-audio-btn', 'input-audio-btn'],
+                ['header-video-btn', 'input-video-btn']
+            ].forEach(([headerId, inputId], idx) => {
+                const callType = idx === 0 ? 'audio' : 'video';
+                [headerId, inputId].forEach(id => {
+                    const btn = document.getElementById(id);
+                    if (!btn) return;
+                    btn.disabled = !online;
+                    btn.onclick = online ? () => initiateCall(target, callType) : null;
+                });
+            });
 
             // 標記 active 項目
             const activeId = target === "lobby" ? "item-lobby" : `item-${target.toLowerCase()}`;
