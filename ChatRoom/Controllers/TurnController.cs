@@ -15,7 +15,7 @@ public class TurnController(IConfiguration configuration, IHttpClientFactory htt
         var host = configuration["Turn:Host"];
 
         if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(host))
-            return StatusCode(503, new { message = "TURN 服務尚未設定" });
+            return Ok(StunFallback());
 
         var client = httpClientFactory.CreateClient();
         var url = $"https://{host}/api/v1/turn/credentials?apiKey={apiKey}";
@@ -29,13 +29,13 @@ public class TurnController(IConfiguration configuration, IHttpClientFactory htt
         }
         catch
         {
-            // Metered.ca 不可用時，退回 Google 公開 STUN（僅限同 LAN 或 loopback 測試）
-            var fallback = new[]
-            {
-                new { urls = "stun:stun.l.google.com:19302" },
-                new { urls = "stun:stun1.l.google.com:19302" }
-            };
-            return Ok(fallback);
+            return Ok(StunFallback());
         }
     }
+
+    private static object[] StunFallback() =>
+    [
+        new { urls = "stun:stun.l.google.com:19302" },
+        new { urls = "stun:stun1.l.google.com:19302" }
+    ];
 }

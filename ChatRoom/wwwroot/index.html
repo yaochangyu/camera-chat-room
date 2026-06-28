@@ -1626,11 +1626,19 @@
         let iceCandidateQueue = [];
 
         async function getTurnCredentials() {
-            const res = await fetch(`${hostUrl}/api/turn/credentials`, {
-                headers: { "Authorization": `Bearer ${longLivedToken}` }
-            });
-            if (!res.ok) throw new Error("無法取得 TURN 憑證");
-            return await res.json();
+            try {
+                const res = await fetch(`${hostUrl}/api/turn/credentials`, {
+                    headers: { "Authorization": `Bearer ${longLivedToken}` }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            } catch (e) {
+                addLog(`TURN 取得失敗（${e.message}），改用 Google STUN`, "warn");
+                return [
+                    { urls: "stun:stun.l.google.com:19302" },
+                    { urls: "stun:stun1.l.google.com:19302" }
+                ];
+            }
         }
 
         function createPeerConnection(iceServers) {
