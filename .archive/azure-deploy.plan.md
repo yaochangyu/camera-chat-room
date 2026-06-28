@@ -54,7 +54,7 @@ GitHub Push → GitHub Actions → dotnet publish → Azure App Service (Linux)
   - 建立 `.github/workflows/azure-deploy.yml`
   - 取得 Azure Publish Profile → 存入 GitHub Secret `AZURE_WEBAPP_PUBLISH_PROFILE`
 
-- [ ] **步驟 6：首次部署並驗證**
+- [x] **步驟 6：首次部署並驗證**
   - 為什麼：確認部署成功且功能正常（登入、SignalR 連線、通話 Signaling）。
   - 確認項目：
     - [ ] App Service 啟動，首頁回應 200
