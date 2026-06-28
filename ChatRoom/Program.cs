@@ -89,9 +89,12 @@ builder.Services.AddCors(options =>
 });
 
 // 註冊 EF Core SQLite 資料庫
+// Azure App Service Linux：/home 是唯一持久掛載點，其他路徑重啟後消失
 builder.Services.AddDbContext<ChatDbContext>(options =>
 {
-    var dataDir = Path.Combine(builder.Environment.ContentRootPath, "data");
+    var dataDir = builder.Environment.IsProduction()
+        ? "/home/data"
+        : Path.Combine(builder.Environment.ContentRootPath, "data");
     Directory.CreateDirectory(dataDir);
     var dbPath = Path.Combine(dataDir, "chatroom.db");
     options.UseSqlite($"Data Source={dbPath}");
