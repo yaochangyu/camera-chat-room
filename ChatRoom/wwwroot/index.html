@@ -1202,6 +1202,9 @@
 
                 // 載入大廳歷史訊息
                 await loadChatHistory();
+
+                // Hub 連線完成後重新拉取好友在線狀態（解決手機端取快照時機差問題）
+                await fetchFriends();
             } catch (err) {
                 addLog(`連線失敗: ${err.message}`, "error");
                 connection = null;
