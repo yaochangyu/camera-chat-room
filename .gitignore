@@ -484,7 +484,9 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
-# Local database files
-data/
+# Local database files (只排除 SQLite 檔案，不排除 Data/ 原始碼目錄)
+*.db
+*.db-shm
+*.db-wal
 
 *.feature.cs
