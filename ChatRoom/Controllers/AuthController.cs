@@ -33,43 +33,10 @@ public class AuthController(ChatDbContext dbContext, JwtTokenService tokenServic
 
         var existingUser = dbContext.Users.FirstOrDefault(u => u.Username.ToLower() == normalizedUsername);
         if (existingUser == null)
-        {
-            var newUser = new User
-            {
-                Username = username,
-                Email = $"{username.ToLower()}@example.com",
-                Bio = $"我是 {username}，剛加入即時聊天室！",
-                StatusMessage = "🟢 在線中",
-                PasswordHash = Services.PasswordHasher.Hash(request.Password),
-                CreatedAt = DateTime.UtcNow
-            };
-            dbContext.Users.Add(newUser);
-            dbContext.SaveChanges();
+            return Unauthorized("帳號不存在");
 
-            var testUsernames = new[] { "Bob", "Charlie", "David" };
-            foreach (var testName in testUsernames)
-            {
-                if (normalizedUsername != UsernameNormalizer.Normalize(testName))
-                {
-                    var targetTestUser = dbContext.Users.FirstOrDefault(u => u.Username.ToLower() == testName.ToLower());
-                    if (targetTestUser != null)
-                    {
-                        dbContext.Friendships.Add(new Friendship
-                        {
-                            User1 = username,
-                            User2 = testName
-                        });
-                    }
-                }
-            }
-            dbContext.SaveChanges();
-            existingUser = newUser;
-        }
-        else
-        {
-            if (!Services.PasswordHasher.Verify(request.Password, existingUser.PasswordHash))
-                return Unauthorized("密碼錯誤");
-        }
+        if (!Services.PasswordHasher.Verify(request.Password, existingUser.PasswordHash))
+            return Unauthorized("密碼錯誤");
 
         var canonicalUsername = UsernameNormalizer.Normalize(existingUser.Username);
         var token = tokenService.GenerateApiToken(canonicalUsername);
