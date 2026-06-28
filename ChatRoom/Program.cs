@@ -138,18 +138,45 @@ using (var scope = app.Services.CreateScope())
     var dbContext = scope.ServiceProvider.GetRequiredService<ChatDbContext>();
     dbContext.Database.EnsureCreated();
 
-    // 如果沒有使用者，塞入預設測試使用者 (Bob, Charlie, David)
-    if (!dbContext.Users.Any())
+    // 確保預設帳號存在（upsert：不存在就建立，已存在則跳過）
+    void EnsureUser(string username, string email, string bio, string status, string password)
     {
-        var testUsers = new List<ChatRoom.Models.User>
-    {
-        new() { Username = "Bob", Email = "bob@example.com", Bio = "我是 Bob，熱愛 .NET 10 開發。", StatusMessage = "⚡ 寫 Code 中...", PasswordHash = ChatRoom.Services.PasswordHasher.Hash("bob123"), CreatedAt = DateTime.UtcNow },
-        new() { Username = "Charlie", Email = "charlie@example.com", Bio = "我是 Charlie，喜歡手沖咖啡與前端設計。", StatusMessage = "☕ 悠閒下午茶", PasswordHash = ChatRoom.Services.PasswordHasher.Hash("charlie123"), CreatedAt = DateTime.UtcNow },
-        new() { Username = "David", Email = "david@example.com", Bio = "我是 David，DevOps / SRE 工程師。", StatusMessage = "🚀 伺服器部署中", PasswordHash = ChatRoom.Services.PasswordHasher.Hash("david123"), CreatedAt = DateTime.UtcNow }
-    };
-        dbContext.Users.AddRange(testUsers);
-        dbContext.SaveChanges();
+        if (!dbContext.Users.Any(u => u.Username.ToLower() == username.ToLower()))
+            dbContext.Users.Add(new ChatRoom.Models.User
+            {
+                Username = username,
+                Email = email,
+                Bio = bio,
+                StatusMessage = status,
+                PasswordHash = ChatRoom.Services.PasswordHasher.Hash(password),
+                CreatedAt = DateTime.UtcNow
+            });
     }
+
+    EnsureUser("Bob",    "bob@example.com",    "我是 Bob，熱愛 .NET 10 開發。",         "⚡ 寫 Code 中...",  "bob123");
+    EnsureUser("Charlie","charlie@example.com", "我是 Charlie，喜歡手沖咖啡與前端設計。", "☕ 悠閒下午茶",    "charlie123");
+    EnsureUser("David",  "david@example.com",   "我是 David，DevOps / SRE 工程師。",     "🚀 伺服器部署中", "david123");
+    EnsureUser("User1",  "user1@example.com",   "我是 User1。",                          "🟢 在線中",        "123@test");
+    EnsureUser("User2",  "user2@example.com",   "我是 User2。",                          "🟢 在線中",        "123@test");
+    dbContext.SaveChanges();
+
+    // 確保 User1 和 User2 互為好友
+    void EnsureFriendship(string a, string b)
+    {
+        if (!dbContext.Friendships.Any(f =>
+                (f.User1.ToLower() == a.ToLower() && f.User2.ToLower() == b.ToLower()) ||
+                (f.User1.ToLower() == b.ToLower() && f.User2.ToLower() == a.ToLower())))
+            dbContext.Friendships.Add(new ChatRoom.Models.Friendship { User1 = a, User2 = b });
+    }
+
+    EnsureFriendship("User1", "User2");
+    EnsureFriendship("User1", "Bob");
+    EnsureFriendship("User1", "Charlie");
+    EnsureFriendship("User1", "David");
+    EnsureFriendship("User2", "Bob");
+    EnsureFriendship("User2", "Charlie");
+    EnsureFriendship("User2", "David");
+    dbContext.SaveChanges();
 }
 
 // 配置 HTTP 請求管道
